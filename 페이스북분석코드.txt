@@ -1,0 +1,84 @@
+#데이터 가져오기 방법 : Rfacebook 패키지를 이용해 페이스북 페이지정보를 크롤링해ㅇ
+install.packages("Rfacebook")
+
+library(Rfacebook)
+
+library(stringr)
+
+library(reshape2)
+
+#token받아오기
+fb_oauth=fbOAuth(app_id="1578353262179336",app_secret="d4136afb238ca3515f80cd54d57868ab"
+                 ,extended_permissions=FALSE)
+
+#### 데이터 합치기 (페이스북은 한번에 100개의 게시물만 받아옴)
+start_date='2017/01/01'
+end_date='2017/02/16'
+scrape_days=seq(from=as.Date(start_date),to=as.Date(end_date),by='weeks')
+
+#빈벡터 page
+pages=c()
+
+#forloop를 돌면서 하루씩 게시글 가져오기
+for(scrape_day in scrape_days)
+{
+  daypost=c()
+  tryCatch(
+    {daypost=getPage(page="newsvop",token=fb_oauth
+                     ,since=as.Date(scrape_day,origin="1970-01-01")
+                     ,until=as.Date(scrape_day,origin="1970-01-01")+7)},
+    error=function(e){})
+  pages=rbind(pages,daypost)
+}
+
+#pages 
+head(pages)
+summary(pages)
+
+#필요한 열만 남겨서 page로 선언
+page<-pages[,c(3,4,5,8,9,10)]
+tail(page)
+summary(page)
+
+
+#시간을 시간만 남겨서 새로운 열(time) 추가(*시차가 9시간 늦기 때문에 9를 더함), created_time 열은 삭제
+library(stringr)
+for(i in 1:nrow(page)){
+  page$year[i]<-as.numeric(str_sub(page[i,2],start=1,end=4))
+  page$month[i]<-as.numeric(str_sub(page[i,2],start=6,end=7))
+  page$time[i]<-(as.numeric(str_sub(page[i,2],start=12,end=13))+9)%%24}
+page<-page[,-2]
+head(page)
+summary(page)
+
+
+install.packages("KoNLP")
+mergeUserDic(data.frame(c('세월호'),"ncn"))
+a<-numeric(100000)
+library(KoNLP)
+#message가 결측값인 경우 오류가 나기 때문에 제거후 실행
+word<-na.omit(page$message)
+
+
+word<-gsub("[[:punct:]]"," ",word) #특수기호 삭제하기
+word<-gsub("[[:cntrl:]]"," ",word) #특수문자 삭제하기
+word<-gsub("http   www vop co kr"," ",word)
+
+write.csv(word,file="C:\\Users\\JJS\\Desktop\\Hackathon\\민중의소리.csv")
+
+nouns<-sapply(word,extractNoun,USE.NAMES=F)
+nouns<-unlist(nouns)
+nouns
+
+head(nouns)
+
+
+#필요한 패키지 설치 
+install.packages("wordcloud")
+install.packages("tm")
+library(wordcloud)
+library(tm)
+
+wordFreq<-table(nouns)
+
+write.csv(wordFreq,file="C:\\Users\\JJS\\Desktop\\Hackathon\\민중의소리_빈도.csv")
